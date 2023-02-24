@@ -1,0 +1,15 @@
+// 给vscode编辑器使用的
+{
+  "compilerOptions": {
+    "baseUrl": "./",
+    "paths": {
+      "react/*": ["src/react1/packages/react/packages/react/*"],
+      "react-dom/*": ["src/react1/packages/react/packages/react-dom/*"],
+      "react-dom-bindings/*": ["src/react1/packages/react/packages/react-dom-bindings/*"],
+      "react-reconciler/*": ["src/react1/packages/react/packages/react-reconciler/*"],
+      "scheduler/*": ["src/react1/packages/react/packages/scheduler/*"],
+      "shared/*": ["src/react1/packages/react/packages/shared/*"]
+    }
+  },
+  "exclude": ["node_modules", "dist"]
+}
