@@ -1,5 +1,5 @@
 // import React from 'react'
-// import { createRoot } from 'react-dom/client';
+import { createRoot } from 'react-dom/client';
 // import App from './App'
 // import './index.css'
 
@@ -9,7 +9,7 @@
 //   </React.StrictMode>,
 // )
 
-debugger;
+// debugger;
 const App = (
   <div key="hello" hello="react debugger demo">
     hello react debugger
@@ -17,6 +17,6 @@ const App = (
 );
 console.log('App:', App);
 
-// debugger;
-// const root = createRoot(document.getElementById('root'));
-// console.log('root:', root);
+debugger;
+const root = createRoot(document.getElementById('root'));
+console.log('root:', root);
