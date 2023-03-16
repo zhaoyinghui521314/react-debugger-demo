@@ -1,10 +1,13 @@
-import { createContainer } from '/src/react/packages/react-reconciler/src/ReactFiberReconciler.js';
 import {
   isContainerMarkedAsRoot,
   markContainerAsRoot,
   // unmarkContainerAsRoot,
 } from '../../../react-dom-bindings/src/client/ReactDOMComponentTree.js';
 import { listenToAllSupportedEvents } from '../../../react-dom-bindings/src/events/DOMPluginEventSystem.js';
+import {
+  createContainer,
+  updateContainer,
+} from '../../../react-reconciler/src/ReactFiberReconciler';
 
 import {
   enableFloat,
@@ -157,3 +160,17 @@ export function createRoot(container, options) {
   // $FlowFixMe[invalid-constructor] Flow no longer supports calling new on functions
   return new ReactDOMRoot(root);
 }
+function ReactDOMHydrationRoot(internalRoot) {
+  this._internalRoot = internalRoot;
+}
+
+// $FlowFixMe[prop-missing] found when upgrading Flow
+ReactDOMHydrationRoot.prototype.render = ReactDOMRoot.prototype.render =
+  // $FlowFixMe[missing-this-annot]
+  function (children) {
+    const root = this._internalRoot;
+    if (root === null) {
+      throw new Error('Cannot update an unmounted root.');
+    }
+    updateContainer(children, root, null, null);
+  };

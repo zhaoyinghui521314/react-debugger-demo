@@ -17,6 +17,9 @@ const App = (
 );
 console.log('App:', App);
 
-debugger;
+// debugger;
 const root = createRoot(document.getElementById('root'));
 console.log('root:', root);
+
+debugger;
+root.render(App);
