@@ -1,6 +1,6 @@
 import { createFiberRoot } from './ReactFiberRoot.js';
 import { createUpdate, enqueueUpdate, entangleTransitions } from './ReactFiberClassUpdateQueue.js';
-import { requestEventTime, requestUpdateLane } from './ReactFiberWorkLoop'; //scheduleUpdateOnFiber
+import { requestEventTime, requestUpdateLane, scheduleUpdateOnFiber } from './ReactFiberWorkLoop'; //
 
 export function createContainer(
   containerInfo,
@@ -90,7 +90,7 @@ export function updateContainer(element, container, parentComponent, callback) {
   console.log('root return:', root);
   // 4. 开始调度【关键】
   if (root !== null) {
-    // scheduleUpdateOnFiber(root, current, lane, eventTime);
+    scheduleUpdateOnFiber(root, current, lane, eventTime);
     // entangleTransitions(root, current, lane);
   }
 
