@@ -22,4 +22,4 @@ const root = createRoot(document.getElementById('root'));
 console.log('root:', root);
 
 debugger;
-root.render(App);
+root.render('hello zyh, this is react debug demo!');

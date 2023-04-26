@@ -18,6 +18,10 @@ import {
   enqueueConcurrentClassUpdate,
   unsafe_markUpdateLaneFromFiberToRoot,
 } from './ReactFiberConcurrentUpdates.js';
+import assign from 'shared/assign';
+
+let hasForceUpdate = false;
+
 export function initializeUpdateQueue(fiber) {
   const queue = {
     baseState: fiber.memoizedState,
@@ -139,5 +143,105 @@ export function entangleTransitions(root, fiber, lane) {
     // the lane finished since the last time we entangled it. So we need to
     // entangle it again, just to be sure.
     markRootEntangled(root, newQueueLanes);
+  }
+}
+
+function getStateFromUpdate(workInProgress, queue, update, prevState, nextProps, instance) {
+  switch (update.tag) {
+    case ReplaceState: {
+      const payload = update.payload;
+      if (typeof payload === 'function') {
+        // Updater function
+        if (__DEV__) {
+          enterDisallowedContextReadInDEV();
+        }
+        const nextState = payload.call(instance, prevState, nextProps);
+        if (__DEV__) {
+          if (debugRenderPhaseSideEffectsForStrictMode && workInProgress.mode & StrictLegacyMode) {
+            setIsStrictModeForDevtools(true);
+            try {
+              payload.call(instance, prevState, nextProps);
+            } finally {
+              setIsStrictModeForDevtools(false);
+            }
+          }
+          exitDisallowedContextReadInDEV();
+        }
+        return nextState;
+      }
+      // State object
+      return payload;
+    }
+    case CaptureUpdate: {
+      workInProgress.flags = (workInProgress.flags & ~ShouldCapture) | DidCapture;
+    }
+    // Intentional fallthrough
+    case UpdateState: {
+      const payload = update.payload;
+      let partialState;
+      if (typeof payload === 'function') {
+        // Updater function
+        if (__DEV__) {
+          enterDisallowedContextReadInDEV();
+        }
+        partialState = payload.call(instance, prevState, nextProps);
+        if (__DEV__) {
+          if (debugRenderPhaseSideEffectsForStrictMode && workInProgress.mode & StrictLegacyMode) {
+            setIsStrictModeForDevtools(true);
+            try {
+              payload.call(instance, prevState, nextProps);
+            } finally {
+              setIsStrictModeForDevtools(false);
+            }
+          }
+          exitDisallowedContextReadInDEV();
+        }
+      } else {
+        // Partial state object
+        partialState = payload;
+      }
+      if (partialState === null || partialState === undefined) {
+        // Null and undefined are treated as no-ops.
+        return prevState;
+      }
+      // Merge the partial state and the previous state.
+      return assign({}, prevState, partialState);
+    }
+    case ForceUpdate: {
+      hasForceUpdate = true;
+      return prevState;
+    }
+  }
+  return prevState;
+}
+
+export function processUpdateQueue(workInProgress, props, instance, renderLanes) {
+  // This is always non-null on a ClassComponent or HostRoot
+  const queue = workInProgress.updateQueue;
+  let newState = queue.baseState;
+  hasForceUpdate = false;
+  // 存在跳过的更新
+  // let firstBaseUpdate = queue.firstBaseUpdate;
+  // let lastBaseUpdate = queue.lastBaseUpdate;
+
+  // Check if there are pending updates. If so, transfer them to the base queue.
+  let pendingQueue = queue.shared.pending;
+  if (pendingQueue !== null) {
+    queue.shared.pending = null;
+    const lastPendingUpdate = pendingQueue;
+    const firstPendingUpdate = lastPendingUpdate.next;
+    lastPendingUpdate.next = null;
+    let update = firstPendingUpdate;
+    do {
+      const shouldSkipUpdate = false;
+      newState = getStateFromUpdate(workInProgress, queue, update, newState, props, instance);
+      update = update.next;
+      if (update === null) {
+        break;
+      }
+    } while (true);
+
+    queue.baseState = newState;
+    workInProgress.memoizedState = newState;
   }
 }

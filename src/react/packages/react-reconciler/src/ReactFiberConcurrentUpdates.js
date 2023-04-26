@@ -83,3 +83,73 @@ function detectUpdateOnUnmountedFiber(sourceFiber, parent) {
     }
   }
 }
+
+export function finishQueueingConcurrentUpdates() {
+  const endIndex = concurrentQueuesIndex;
+  concurrentQueuesIndex = 0;
+
+  concurrentlyUpdatedLanes = NoLanes;
+
+  let i = 0;
+  while (i < endIndex) {
+    const fiber = concurrentQueues[i];
+    concurrentQueues[i++] = null;
+    const queue = concurrentQueues[i];
+    concurrentQueues[i++] = null;
+    const update = concurrentQueues[i];
+    concurrentQueues[i++] = null;
+    const lane = concurrentQueues[i];
+    concurrentQueues[i++] = null;
+
+    if (queue !== null && update !== null) {
+      const pending = queue.pending;
+      if (pending === null) {
+        // This is the first update. Create a circular list.
+        update.next = update;
+      } else {
+        update.next = pending.next;
+        pending.next = update;
+      }
+      queue.pending = update;
+    }
+
+    if (lane !== NoLane) {
+      markUpdateLaneFromFiberToRoot(fiber, update, lane);
+    }
+  }
+}
+
+function markUpdateLaneFromFiberToRoot(sourceFiber, update, lane) {
+  // Update the source fiber's lanes
+  sourceFiber.lanes = mergeLanes(sourceFiber.lanes, lane);
+  let alternate = sourceFiber.alternate;
+  if (alternate !== null) {
+    alternate.lanes = mergeLanes(alternate.lanes, lane);
+  }
+  // Walk the parent path to the root and update the child lanes.
+  let isHidden = false;
+  let parent = sourceFiber.return;
+  let node = sourceFiber;
+  while (parent !== null) {
+    parent.childLanes = mergeLanes(parent.childLanes, lane);
+    alternate = parent.alternate;
+    if (alternate !== null) {
+      alternate.childLanes = mergeLanes(alternate.childLanes, lane);
+    }
+
+    if (parent.tag === OffscreenComponent) {
+      const offscreenInstance = parent.stateNode;
+      if (offscreenInstance !== null && !(offscreenInstance._visibility & OffscreenVisible)) {
+        isHidden = true;
+      }
+    }
+
+    node = parent;
+    parent = parent.return;
+  }
+
+  if (isHidden && update !== null && node.tag === HostRoot) {
+    const root = node.stateNode;
+    markHiddenUpdate(root, update, lane);
+  }
+}

@@ -15,6 +15,7 @@ import {
   enableTransitionTracing,
   useModernStrictMode,
 } from '../../shared/ReactFeatureFlags';
+import { commitMutationEffects } from './ReactFiberCommitWork';
 import {
   NoMode,
   ProfileMode,
@@ -90,9 +91,29 @@ import {
   // prepareRendererToRender,
   // resetRendererAfterRender,
 } from './ReactFiberHostConfig';
+import {
+  // enqueueConcurrentRenderForLane,
+  finishQueueingConcurrentUpdates,
+  // getConcurrentlyUpdatedLanes,
+} from './ReactFiberConcurrentUpdates';
 import { createWorkInProgress } from './ReactFiber.js';
 import { beginWork } from './ReactFiberBeginWork';
 import { completeWork } from './ReactFiberCompleteWork';
+import {
+  NoFlags,
+  Incomplete,
+  StoreConsistency,
+  HostEffectMask,
+  ForceClientRender,
+  BeforeMutationMask,
+  MutationMask,
+  LayoutMask,
+  PassiveMask,
+  PlacementDEV,
+  Visibility,
+  MountPassiveDev,
+  MountLayoutDev,
+} from './ReactFiberFlags';
 const PossiblyWeakMap = typeof WeakMap === 'function' ? WeakMap : Map;
 
 // const {
@@ -518,7 +539,8 @@ function performConcurrentWorkOnRoot(root, didTimeout) {
   const shouldTimeSlice = false;
   let exitStatus = renderRootSync(root, lanes);
 
-  // root.finishedWork = finishedWork;
+  const finishedWork = root.current.alternate;
+  root.finishedWork = finishedWork;
   // root.finishedLanes = lanes;
   // commitRoot
   finishConcurrentRender(root, exitStatus, lanes);
@@ -537,9 +559,9 @@ function performUnitOfWork(unitOfWork) {
   // The current, flushed, state of this fiber is the alternate. Ideally
   // nothing should rely on this, but relying on it here means that we don't
   // need an additional field on the work in progress.
+  console.log('next!', unitOfWork);
   const current = unitOfWork.alternate; // 老的fiber
   let next;
-  console.log('next!');
   next = beginWork(current, unitOfWork, renderLanes);
 
   if (next === null) {
@@ -619,7 +641,7 @@ function prepareFreshStack(root, lanes) {
   workInProgressRootConcurrentErrors = null;
   workInProgressRootRecoverableErrors = null;
 
-  // finishQueueingConcurrentUpdates();
+  finishQueueingConcurrentUpdates();
 
   return rootWorkInProgress;
 }
@@ -629,23 +651,33 @@ function finishConcurrentRender(root, exitStatus, lanes) {
   commitRoot(root, workInProgressRootRecoverableErrors, workInProgressTransitions);
 }
 function commitRoot(root, recoverableErrors, transitions) {
-  // TODO: This no longer makes any sense. We already wrap the mutation and
-  // layout phases. Should be able to remove.
-  // const previousUpdateLanePriority = getCurrentUpdatePriority();
-  // const prevTransition = ReactCurrentBatchConfig.transition;
-
-  // try {
-  //   ReactCurrentBatchConfig.transition = null;
-  //   setCurrentUpdatePriority(DiscreteEventPriority);
-  //   commitRootImpl(root, recoverableErrors, transitions, previousUpdateLanePriority);
-  // } finally {
-  //   ReactCurrentBatchConfig.transition = prevTransition;
-  //   setCurrentUpdatePriority(previousUpdateLanePriority);
-  // }
   commitRootImpl(root);
-  // return null;
 }
 
-function commitRootImpl(root) {
+function commitRootImpl(root, recoverableErrors, transitions, renderPriorityLevel) {
   console.log('commitRoot:', root);
+  const finishedWork = root.finishedWork;
+  root.finishedWork = null;
+  const lanes = root.finishedLanes;
+  // children有副作用
+  const subtreeHasEffects =
+    (finishedWork.subtreeFlags & (BeforeMutationMask | MutationMask | LayoutMask | PassiveMask)) !==
+    NoFlags;
+  // root有副作用
+  const rootHasEffect =
+    (finishedWork.flags & (BeforeMutationMask | MutationMask | LayoutMask | PassiveMask)) !==
+    NoFlags;
+
+  if (subtreeHasEffects || rootHasEffect) {
+    // 1. dom变更前
+    // const shouldFireAfterActiveInstanceBlur = commitBeforeMutationEffects(root, finishedWork);
+
+    // 2. dom变更，页面开始展示
+    commitMutationEffects(root, finishedWork, lanes);
+
+    // 3. dom变更之后
+    // commitLayoutEffects(finishedWork, root, lanes);
+  }
+
+  return null;
 }
